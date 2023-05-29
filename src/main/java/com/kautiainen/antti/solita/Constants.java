@@ -24,7 +24,7 @@ public class Constants
 	 */
 	public class Routes
 	{
-		public static final String SINGLE_SAMPLE = "journey";
-		public static final String SAMPLE_COLLECTION = "journeys";
+		public static final String SINGLE_JOURNEY = "journey";
+		public static final String JOURNEY_COLLECTION = "journeys";
 	}
 }

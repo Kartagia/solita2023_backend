@@ -18,7 +18,6 @@ extends Environment
 	private String baseUrl;
 	private int executorThreadPoolSize;
 
-	private StationController stationController;
 	private JourneyController journeyController;
 
 	@Override
@@ -33,7 +32,6 @@ extends Environment
 	private void initialize()
 	{
 		this.journeyController = new JourneyController();
-		this.stationController = new StationController();
 	}
 
 	public int getPort()
@@ -49,10 +47,6 @@ extends Environment
 	public int getExecutorThreadPoolSize()
 	{
 		return executorThreadPoolSize;
-	}
-
-	public StationController getStationController() {
-		return stationController;
 	}
 
 	public JourneyController getJourneyController()
