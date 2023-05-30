@@ -2,15 +2,12 @@ package com.kautiainen.antti.solita.controllers;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import org.restexpress.Request;
 import org.restexpress.Response;
@@ -18,7 +15,6 @@ import org.restexpress.exception.BadRequestException;
 
 import com.kautiainen.antti.solita.Constants;
 import com.kautiainen.antti.solita.exceptions.InvalidFieldsException;
-import com.kautiainen.antti.solita.model.Journey;
 import com.kautiainen.antti.solita.model.Station;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -35,7 +31,7 @@ public class StationController {
      * stations
      * map.
      */
-    private volatile transient java.util.TreeMap<Integer, Integer> idIndex = new java.util.TreeMap<>();
+    private volatile transient java.util.HashMap<Integer, Integer> idIndex = new java.util.HashMap<>();
 
     protected synchronized boolean addStation(Station station) throws InvalidFieldsException {
         LinkedList<BiConsumer<Map<Integer, Integer>, List<Station>>> undos = new LinkedList<>();
@@ -177,6 +173,16 @@ public class StationController {
         } else {
             response.setResponseStatus(HttpResponseStatus.NOT_MODIFIED);
             return station;
+        }
+    }
+
+    public synchronized Station read(Request request, Response response) {
+        Integer id = Integer.parseInt(request.getHeader(Constants.Url.STATION_ID, "No Station ID supplied"));
+        if (idIndex.containsKey(id)) {
+            return stations.get(idIndex.get(id));
+        } else {
+            response.setResponseStatus(HttpResponseStatus.NOT_FOUND);
+            return null;
         }
     }
 

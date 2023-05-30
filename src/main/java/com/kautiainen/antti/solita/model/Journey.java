@@ -2,7 +2,7 @@ package com.kautiainen.antti.solita.model;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
+import java.util.HashMap;
 
 import com.kautiainen.antti.solita.exceptions.InvalidFieldsException;
 
@@ -11,7 +11,7 @@ public class Journey {
         ID, RETURN_STATION, DEPARTURE_STATION, DISTANCE, DURATION;
     }
 
-    private Map<Fields, Object> data = new TreeMap<>();
+    private Map<Fields, Object> data = new HashMap<>();
 
     public Journey(Integer id, PartialModel departureStation, PartialModel returStation, Integer distance, Integer duration)
             throws InvalidFieldsException {
