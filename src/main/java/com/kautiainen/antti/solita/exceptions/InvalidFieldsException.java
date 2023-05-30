@@ -1,7 +1,6 @@
 package com.kautiainen.antti.solita.exceptions;
 
 import java.io.Serializable;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -40,10 +39,6 @@ public class InvalidFieldsException extends IllegalArgumentException {
 
         public boolean validFieldName(String fieldName) {
             return true;
-        }
-
-        public Map.Entry<String, String> toMapEntry() {
-            return new AbstractMap.SimpleEntry<String, String>(this.fieldName, this.description);
         }
     }
 

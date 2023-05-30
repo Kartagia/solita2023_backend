@@ -9,6 +9,13 @@ import java.util.Locale;
  */
 public class Station implements PartialModel {
 
+    /**
+     * Fields of the station.
+     */
+    public static enum Fields {
+        IDENTIFIER, NAME, LANGUAGE;
+    }
+
     private Integer id;
 
     /**
@@ -45,10 +52,19 @@ public class Station implements PartialModel {
      */
     private String lang;
 
-    public Station(Integer id, String name, Locale locale) {
+    public Station(Station another) {
+        this(another.getId(), another.getName(), another.getLang());
+    }
+
+
+    public Station(Integer id, String name, String language) {
         setId(id);
         setName(name);
-        setLang(locale == null ? null : locale.getLanguage());
+        setLang(language);
+    }
+
+    public Station(Integer id, String name, Locale locale) {
+        this(id, name, (locale == null ? null : locale.getLanguage()));
     }
 
     public Station(Integer id, String name) {

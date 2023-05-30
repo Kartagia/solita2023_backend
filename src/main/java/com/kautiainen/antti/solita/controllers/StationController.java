@@ -1,10 +1,16 @@
 package com.kautiainen.antti.solita.controllers;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import org.restexpress.Request;
 import org.restexpress.Response;
@@ -22,101 +28,161 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  */
 public class StationController {
 
-    /**
-     * The in memory collection of stations.
-     */
-    private static volatile java.util.Map<Integer, Station> stations = Collections
-            .synchronizedMap(new java.util.TreeMap<>());
+    private volatile java.util.ArrayList<Station> stations;
 
     /**
-     * Get new identifier.
+     * The station identifier index map from station identifeir to its index in the
+     * stations
+     * map.
+     */
+    private volatile transient java.util.TreeMap<Integer, Integer> idIndex = new java.util.TreeMap<>();
+
+    protected synchronized boolean addStation(Station station) throws InvalidFieldsException {
+        LinkedList<BiConsumer<Map<Integer, Integer>, List<Station>>> undos = new LinkedList<>();
+        try {
+            return this.addStation(station, false, undos);
+        } catch (Exception e) {
+            while (undos.size() > 0) {
+                undos.pop().accept(this.idIndex, this.stations);
+            }
+            throw e;
+        }
+    }
+
+    protected synchronized boolean addStation(
+            Station station,
+            boolean allowDupliateIds,
+            LinkedList<BiConsumer<Map<Integer, Integer>, List<Station>>> undos) throws InvalidFieldsException {
+        Integer id = station.getId();
+        Station added = station;
+        if (id == null) {
+            // Station does not have identifier, thus generating an ide.
+            do {
+                id = StationController.this.getNewIdentifier();
+            } while (idIndex.containsKey(id));
+            final int newId = id;
+            idIndex.put(newId, stations.size());
+            undos.add((ids, list) -> {
+                ids.remove(newId);
+            });
+            added = new Station(station);
+            added.setId(newId);
+            final int size = stations.size();
+            stations.add(added);
+            undos.add((ids, list) -> {
+                stations.remove(size);
+            });
+            return true;
+        } else if (idIndex.containsKey(id)) {
+            // Invalid value to add.
+            if (allowDupliateIds) {
+                final int setId = id;
+                final Station oldValue = stations.set(idIndex.get(setId), added);
+                undos.add((ids, list) -> {
+                    stations.set(idIndex.get(setId), oldValue);
+                });
+                return true;
+            } else {
+                throw new InvalidFieldsException(Station.Fields.IDENTIFIER.toString(), (Throwable) null,
+                        new InvalidFieldsException.FieldError(Station.Fields.IDENTIFIER.toString(),
+                                "Invalid identifier"));
+            }
+        } else {
+            final int index = stations.size();
+            final int newId = id;
+            idIndex.put(id, index);
+            undos.add((ids, list) -> {
+                idIndex.remove(newId);
+            });
+            stations.add(added);
+            undos.add((ids, list) -> {
+                list.remove(index);
+            });
+            return true;
+        }
+    }
+
+    protected synchronized boolean addStations(
+            List<Station> stations,
+            boolean allowsDuplicateIds,
+            LinkedList<BiConsumer<Map<Integer, Integer>, List<Station>>> undos) {
+        int undoCount = (undos != null ? undos.size() : 0);
+        if (undos == null) {
+            return addStations(stations, allowsDuplicateIds, new LinkedList<>());
+        } else {
+            try {
+                // Starting operation.
+                final List<Boolean> result = Arrays.asList(false);
+                if (stations != null) {
+                    stations.stream().forEachOrdered(
+                            (station) -> {
+                                result.set(0, addStation(station, false, undos));
+                            });
+                }
+                return result.get(0);
+            } catch (Exception e) {
+                // Rollback.
+                while (undos.size() > undoCount) {
+                    undos.pop().accept(this.idIndex, this.stations);
+                }
+                throw e;
+            }
+        }
+    }
+
+    /**
+     * 
+     * 
+     * @param stations The initial station list.
+     * 
+     */
+    public StationController(java.util.List<Station> stations) {
+        addStations(stations, false,
+                (LinkedList<BiConsumer<Map<Integer, Integer>, List<Station>>>) null);
+    }
+
+    public StationController() {
+        this(java.util.Collections.synchronizedList(new ArrayList<Station>()));
+    }
+
+    /**
+     * Get new identifier. 
      * 
      * @return The new identifier for the stations.
      */
-    public synchronized Integer getNewIdentifier() {
-        Optional<Integer> max = stations.keySet().stream().max(Comparator.naturalOrder());
-        Integer result = 1;
-        if (max.isPresent()) {
-            result = max.get() + 1;
-            stations.put(result, new Station(result, null, null));
-        } else {
-            result = 1;
-            stations.put(result, new Station(result, null, null));
-        }
+    protected synchronized Integer getNewIdentifier() {
+        Optional<Integer> max = idIndex.keySet().stream().max(Comparator.naturalOrder());
+        Integer result = max.orElse(0) +1;
         return result;
     }
 
-    
     /**
      * Serves creation of a new station.
-     * @param request The request.
+     * 
+     * @param request  The request.
      * @param response The response.
      */
-    public Station create(Request request, Response response) {
-        try {
-            Station station = request.getBodyAs(Station.class, "Station details not provided");
-            if (!station.isValid()) {
-                // Invalid station.
-                response.setResponseStatus(HttpResponseStatus.BAD_REQUEST);
-            }
-            if (station.isNew()) {
-                // Adding identifier.
-                final Integer id = getNewIdentifier();
-                station.setId(id);
-                stations.put(id, station);
-            } else {
-                // Checking if there is a journey with given identifier.
-                final Integer id = station.getId();
-                if (stations.containsKey(station.getId())) {
-                    // The id is reserved.
-                    throw new InvalidFieldsException("Identifier not unique",
-                            null,
-                            new InvalidFieldsException.FieldError(Journey.Fields.ID.toString(),
-                                    "Reserved identifier"));
-                } else {
-                    stations.put(id, station);
-                }
-            }
-
-            response.setResponseCreated();
+    public synchronized Station create(Request request, Response response) {
+        Station station = request.getBodyAs(Station.class, "Station details not provided");
+        if (!station.isValid()) {
+            // Invalid station.
+            response.setResponseStatus(HttpResponseStatus.BAD_REQUEST);
+        } else if (idIndex.containsKey(station.getId())) {
+            // Duplicate identifier.
+            throw new BadRequestException("Identifier already reserved", null);
+        }
+        if (addStation(station)) {
+            response.setResponseStatus(HttpResponseStatus.CREATED);
+            return this.stations.get(stations.size() - 1);
+        } else {
+            response.setResponseStatus(HttpResponseStatus.NOT_MODIFIED);
             return station;
-        } catch (Exception ife) {
-            response.setException(ife);
-            return null;
         }
     }
 
-
-    /**
-     * Serves acquisition of a single station.
-     * @param request The request.
-     * @param response The response.
-     */
-    public Station read(Request request, Response response) {
-        String id = request.getHeader(Constants.Url.STATION_ID, "No Station ID supplied");
-        try {
-            int idValue = Integer.parseInt(id);
-            return stations.get(idValue);
-        } catch (NumberFormatException nfe) {
-            response.setException(new BadRequestException("Invalid station identifier", nfe));
-        }
-        return null;
-    }
-
-
-    /**
-     * Serves getting collection of stations.
-     * 
-     * Paging or filtered requests are not yet implemented.
-     * 
-     * @param request The request.
-     * @param response The response.
-     * @todo Filtering
-     * @todo Paging.
-     */
-    public List<Station> readAll(Request request, Response response) {
+    public synchronized List<Station> readAll(Request request, Response response) {
         ArrayList<Station> result = new ArrayList<>();
-        result.addAll(StationController.stations.values());
+        result.addAll(new ArrayList<Station>(this.stations));
         return result;
     }
 
@@ -124,72 +190,75 @@ public class StationController {
      * Serves update of a station requests.
      * 
      * Partial updates does not allow incomplete keys, and requires
-     * an existing target. 
+     * an existing ta get.
      * 
      * Complete updates performs creation of a new station if necessary.
      * 
-     * @param request The request.
+     * @param request  The request.
      * @param response The response.
      */
-    public void update(Request request, Response response) {
-        try {
-            Station station = request.getBodyAs(Station.class, "Station details not provided");
-            if (station.isIncomplete()) {
-                // Partial update. 
-                // - Partial update does not allow incomplete keys.
-                // - Target must exist. 
-                if (station.isNew()) {
-                    // Incomplete value.
-                    response.setResponseStatus(HttpResponseStatus.BAD_REQUEST);
-                    return;                    
-                } else if (stations.containsKey(station.getId())) {
-                    Station target = stations.get(station.getId());
+    public synchronized void update(Request request, Response response) {
+        Station station = request.getBodyAs(Station.class, "Station details not provided");
+        if (station.isIncomplete()) {
+            // Partial update.
+            // - Partial update does not allow incomplete keys.
+            // - Target
+            if (station.isNew()) {
+                // Incomplete value.
+                response.setResponseStatus(HttpResponseStatus.BAD_REQUEST);
+                return;
+            } else if (idIndex.containsKey(station.getId())) {
+                Station target = stations.get(idIndex.get(station.getId()));
 
-                    // TODO: create update method to Station.
-                    if (station.getLang() != null) {
-                        target.setLang(station.getLang());
-                    }
-                    if (station.getName() != null) {
-                        target.setName(station.getName());
-                    }
-                } else {
-                    // Missing station to update.
-                    response.setResponseStatus(HttpResponseStatus.NOT_FOUND);
+                if (station.getLang() != null) {
+                    target.setLang(station.getLang());
                 }
-
-            } else if (station.isNew()) {
-                // Creating a new idetnifier.
-                // TODO: Logger for adding a new station.
-                final Integer id = getNewIdentifier();
-                station.setId(id);
-                stations.put(id, station);
+                if (station.getName() != null) {
+                    target.setName(station.getName());
+                }
             } else {
-                // Checking if there is a journey with given identifier.
-                final Integer id = station.getId();
-                if (stations.containsKey(station.getId())) {
-                    // TODO: Logger for replacing station.
-                    stations.put(id, station);
+                // Missing station to update.
+                response.setResponseStatus(HttpResponseStatus.NOT_FOUND);
+            }
+
+        } else if (station.isNew()) {
+            // Creating a new idetnifier.
+            // TODO: Logger for adding a new station.
+            if (addStation(station)) {
+                response.setResponseStatus(HttpResponseStatus.CREATED);
+            } else {
+                response.setResponseStatus(HttpResponseStatus.NOT_MODIFIED);
+            }
+        } else {
+            // Checking if there is a journey with given identifier.
+            final Integer id = station.getId();
+            if (idIndex.containsKey(id)) {
+                // TODO: Logger for replacing station.
+                stations.set(idIndex.get(id), station);
+            } else {
+                // TODO: Logger for adding new station.
+                if (addStation(station)) {
+                    response.setResponseStatus(HttpResponseStatus.CREATED);
                 } else {
-                    // TODO: Logger for adding new station.
-                    stations.put(id, station);
+                    response.setResponseStatus(HttpResponseStatus.NOT_MODIFIED);
                 }
             }
-            response.setResponseNoContent();
-        } catch (Exception ife) {
-            response.setException(new BadRequestException("Invalid updated station", ife));
+
         }
     }
 
     /**
      * Serves removal of a station.
-     * @param request The request.
+     * 
+     * @param request  The request.
      * @param response The response.
      */
-    public void delete(Request request, Response response) {
+    public synchronized void delete(Request request, Response response) {
         try {
             Integer id = Integer.parseInt(request.getHeader(Constants.Url.STATION_ID, "No Station ID supplied"));
-            if (stations.containsKey(id)) {
-                stations.remove(id);
+            if (idIndex.containsKey(id)) {
+                stations.remove(idIndex.get(id));
+                idIndex.remove(id);
                 response.setResponseNoContent();
             } else {
                 response.setResponseStatus(HttpResponseStatus.NOT_FOUND);
