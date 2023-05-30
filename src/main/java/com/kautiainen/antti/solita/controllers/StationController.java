@@ -46,6 +46,12 @@ public class StationController {
         return result;
     }
 
+    
+    /**
+     * Serves creation of a new station.
+     * @param request The request.
+     * @param response The response.
+     */
     public Station create(Request request, Response response) {
         try {
             Station station = request.getBodyAs(Station.class, "Station details not provided");
@@ -80,6 +86,12 @@ public class StationController {
         }
     }
 
+
+    /**
+     * Serves acquisition of a single station.
+     * @param request The request.
+     * @param response The response.
+     */
     public Station read(Request request, Response response) {
         String id = request.getHeader(Constants.Url.STATION_ID, "No Station ID supplied");
         try {
@@ -91,17 +103,41 @@ public class StationController {
         return null;
     }
 
+
+    /**
+     * Serves getting collection of stations.
+     * 
+     * Paging or filtered requests are not yet implemented.
+     * 
+     * @param request The request.
+     * @param response The response.
+     * @todo Filtering
+     * @todo Paging.
+     */
     public List<Station> readAll(Request request, Response response) {
         ArrayList<Station> result = new ArrayList<>();
         result.addAll(StationController.stations.values());
         return result;
     }
 
+    /**
+     * Serves update of a station requests.
+     * 
+     * Partial updates does not allow incomplete keys, and requires
+     * an existing target. 
+     * 
+     * Complete updates performs creation of a new station if necessary.
+     * 
+     * @param request The request.
+     * @param response The response.
+     */
     public void update(Request request, Response response) {
         try {
             Station station = request.getBodyAs(Station.class, "Station details not provided");
             if (station.isIncomplete()) {
                 // Partial update. 
+                // - Partial update does not allow incomplete keys.
+                // - Target must exist. 
                 if (station.isNew()) {
                     // Incomplete value.
                     response.setResponseStatus(HttpResponseStatus.BAD_REQUEST);
@@ -144,6 +180,11 @@ public class StationController {
         }
     }
 
+    /**
+     * Serves removal of a station.
+     * @param request The request.
+     * @param response The response.
+     */
     public void delete(Request request, Response response) {
         try {
             Integer id = Integer.parseInt(request.getHeader(Constants.Url.STATION_ID, "No Station ID supplied"));
