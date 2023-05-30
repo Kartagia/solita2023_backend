@@ -5,6 +5,9 @@ import java.util.Properties;
 import org.restexpress.RestExpress;
 import org.restexpress.util.Environment;
 
+import com.kautiainen.antti.solita.controllers.JourneyController;
+import com.kautiainen.antti.solita.controllers.StationController;
+
 public class Configuration
 extends Environment
 {
@@ -20,6 +23,8 @@ extends Environment
 
 	private JourneyController journeyController;
 
+	private StationController stationController; 
+
 	@Override
 	protected void fillValues(Properties p)
 	{
@@ -32,6 +37,7 @@ extends Environment
 	private void initialize()
 	{
 		this.journeyController = new JourneyController();
+		this.stationController = new StationController();
 	}
 
 	public int getPort()
@@ -52,5 +58,10 @@ extends Environment
 	public JourneyController getJourneyController()
 	{
 		return journeyController;
+	}
+
+	public StationController getStationController() 
+	{
+		return stationController;
 	}
 }
