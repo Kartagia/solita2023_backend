@@ -100,12 +100,30 @@ public class StationController {
     public void update(Request request, Response response) {
         try {
             Station station = request.getBodyAs(Station.class, "Station details not provided");
-            if (!station.isValid()) {
-                // Invalid station.
-                response.setResponseStatus(HttpResponseStatus.BAD_REQUEST);
-            }
-            if (station.isNew()) {
-                // Adding identifier.
+            if (station.isIncomplete()) {
+                // Partial update. 
+                if (station.isNew()) {
+                    // Incomplete value.
+                    response.setResponseStatus(HttpResponseStatus.BAD_REQUEST);
+                    return;                    
+                } else if (stations.containsKey(station.getId())) {
+                    Station target = stations.get(station.getId());
+
+                    // TODO: create update method to Station.
+                    if (station.getLang() != null) {
+                        target.setLang(station.getLang());
+                    }
+                    if (station.getName() != null) {
+                        target.setName(station.getName());
+                    }
+                } else {
+                    // Missing station to update.
+                    response.setResponseStatus(HttpResponseStatus.NOT_FOUND);
+                }
+
+            } else if (station.isNew()) {
+                // Creating a new idetnifier.
+                // TODO: Logger for adding a new station.
                 final Integer id = getNewIdentifier();
                 station.setId(id);
                 stations.put(id, station);
@@ -113,12 +131,10 @@ public class StationController {
                 // Checking if there is a journey with given identifier.
                 final Integer id = station.getId();
                 if (stations.containsKey(station.getId())) {
-                    // The id is reserved.
-                    throw new InvalidFieldsException("Identifier not unique",
-                            null,
-                            new InvalidFieldsException.FieldError(Journey.Fields.ID.toString(),
-                                    "Reserved identifier"));
+                    // TODO: Logger for replacing station.
+                    stations.put(id, station);
                 } else {
+                    // TODO: Logger for adding new station.
                     stations.put(id, station);
                 }
             }
