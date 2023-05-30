@@ -16,6 +16,14 @@ public class Constants
 		 * The journey filter parameter.
 		 */
 		public static final String JOURNEY_FILTER = "journeyFilter";
+
+
+		/**
+		 * The station identifier. 
+		 */
+		public static final String STATION_ID = "stationId";
+
+
 	}
 
 	/**
@@ -26,5 +34,7 @@ public class Constants
 	{
 		public static final String SINGLE_JOURNEY = "journey";
 		public static final String JOURNEY_COLLECTION = "journeys";
+		public static final String SINGLE_STATION = "station";
+		public static final String STATION_CONNECTION = "stations";
 	}
 }
