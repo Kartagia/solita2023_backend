@@ -1,6 +1,16 @@
 package com.kautiainen.antti.solita.model;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map.Entry;
+
+import org.apache.commons.collections.map.MultiValueMap;
+import org.apache.commons.collections4.MultiValuedMap;
+
+import com.opencsv.bean.CsvBindByName;
+import com.opencsv.bean.CsvNumber;
+import com.opencsv.bean.CsvBindAndJoinByName;
 
 /**
  * Model representing a station of a Solita Journeys.
@@ -16,7 +26,36 @@ public class Station implements PartialModel {
         IDENTIFIER, NAME, LANGUAGE;
     }
 
+    @CsvBindByName(column="ID", required=true)
     private Integer id;
+
+    /**
+     * Mapping from languages to station names. 
+     */
+    @CsvBindAndJoinByName(column="Nimi|Namn|Name", elementType = String.class, required=true)
+    private MultiValuedMap<String, String> names;
+
+    @CsvBindAndJoinByName(column="Osoite|Adress|Address", elementType = String.class, required=true)
+    private MultiValuedMap<String, String> address;
+
+    @CsvBindAndJoinByName(column="Kaupunki|Stad|City", elementType = String.class, required=true)
+    private MultiValuedMap<String, String> city;
+
+    @CsvBindAndJoinByName(column="Operaattori|Operaattor|Operator", elementType = String.class, required=true)
+    private MultiValuedMap<String, String> operatorName;
+
+    @CsvBindByName(column="Kapasiteetti|Kapasiteet|Capacity")
+    private int capacity = 0; 
+
+    @CsvBindByName(column="X|x", required=true)
+    @CsvNumber("#00.00000#")
+    private float xCoordinate;
+
+    @CsvBindByName(column="Y|y", required=true)
+    @CsvNumber("#00.00000#")
+    private float yCoordinate;
+
+
 
     /**
      * Get station identifier.
@@ -29,11 +68,11 @@ public class Station implements PartialModel {
         this.id = id;
     }
 
-    public String getName() {
+    public String getName(String lang) {
         return name;
     }
 
-    public void setName(String name) {
+    public void setName(String name, String lang) {
         this.name = name;
     }
 
@@ -53,14 +92,27 @@ public class Station implements PartialModel {
     private String lang;
 
     public Station(Station another) {
-        this(another.getId(), another.getName(), another.getLang());
+        setFields(another);
     }
 
+    public synchronized void setFields(Station another) {
+        setId(another.getId());
+        this.names.putAll(another.names);
+        this.address.putAll(another.address);
+        this.city.putAll(another.city);
+        this.operatorName.putAll(another.operatorName);
+        this.capacity = (another.capacity);
+        this.xCoordinate = (another.xCoordinate);
+        this.yCoordinate = (another.yCoordinate);
+    }
+
+    public Collection<Entry<String, String>> getNames() {
+        return this.names.entries();
+    }
 
     public Station(Integer id, String name, String language) {
         setId(id);
-        setName(name);
-        setLang(language);
+        setName(name, language);
     }
 
     public Station(Integer id, String name, Locale locale) {
@@ -78,7 +130,7 @@ public class Station implements PartialModel {
 
     @Override
     public boolean isValid() {
-        String name = getName(), lang = getLang();
-        return name != null && !name.isBlank() && lang  != null && !lang.isBlank();
+        return !this.names.entries().isEmpty() && !this.address.isEmpty() &&
+        !this.city.isEmpty() && !this.operatorName.isEmpty();
     }
 }

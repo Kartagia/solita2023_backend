@@ -33,7 +33,7 @@ public class StationController {
      */
     private volatile transient java.util.HashMap<Integer, Integer> idIndex = new java.util.HashMap<>();
 
-    protected synchronized boolean addStation(Station station) throws InvalidFieldsException {
+    public synchronized boolean addStation(Station station) throws InvalidFieldsException {
         LinkedList<BiConsumer<Map<Integer, Integer>, List<Station>>> undos = new LinkedList<>();
         try {
             return this.addStation(station, false, undos);
@@ -45,7 +45,7 @@ public class StationController {
         }
     }
 
-    protected synchronized boolean addStation(
+    public synchronized boolean addStation(
             Station station,
             boolean allowDupliateIds,
             LinkedList<BiConsumer<Map<Integer, Integer>, List<Station>>> undos) throws InvalidFieldsException {
@@ -98,7 +98,7 @@ public class StationController {
         }
     }
 
-    protected synchronized boolean addStations(
+    public synchronized boolean addStations(
             List<Station> stations,
             boolean allowsDuplicateIds,
             LinkedList<BiConsumer<Map<Integer, Integer>, List<Station>>> undos) {
@@ -216,12 +216,7 @@ public class StationController {
             } else if (idIndex.containsKey(station.getId())) {
                 Station target = stations.get(idIndex.get(station.getId()));
 
-                if (station.getLang() != null) {
-                    target.setLang(station.getLang());
-                }
-                if (station.getName() != null) {
-                    target.setName(station.getName());
-                }
+                target.setFields(station);
             } else {
                 // Missing station to update.
                 response.setResponseStatus(HttpResponseStatus.NOT_FOUND);
